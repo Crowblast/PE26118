@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "nombre": "Auriculares Inalámbricos AeroSound X",
+    "precio": 12999,
+    "categoria": "audio",
+    "descripcion": "Experimenta la máxima inmersión musical con cancelación activa de ruido (ANC) híbrida. Los AeroSound X ofrecen hasta 40 horas de reproducción continua, almohadillas ergonómicas de espuma con memoria y conectividad Bluetooth 5.2 de baja latencia.",
+    "imagen": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80",
+    "stock": 15,
+    "specs": {
+      "Conectividad": "Bluetooth 5.2 / Auxiliar 3.5mm",
+      "Autonomía": "Hasta 40 horas (ANC desactivado)",
+      "Cancelación de Ruido": "Activa híbrida (ANC)",
+      "Peso": "260g"
+    }
+  },
+  {
+    "id": 2,
+    "nombre": "Teclado Mecánico ApexType Pro",
+    "precio": 8499,
+    "categoria": "perifericos",
+    "descripcion": "Diseñado para máxima velocidad y durabilidad. El ApexType Pro cuenta con switches mecánicos Outemu Red para una respuesta lineal y silenciosa, retroiluminación RGB dinámica por tecla con efectos personalizables y un chasis robusto de aluminio de grado aeronáutico.",
+    "imagen": "https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?w=600&auto=format&fit=crop&q=80",
+    "stock": 8,
+    "specs": {
+      "Tipo de Switch": "Mecánico Outemu Red (Lineal)",
+      "Distribución": "Español (ISO)",
+      "Iluminación": "RGB Dinámica 16.8M de colores",
+      "Material": "Aluminio y ABS reforzado"
+    }
+  },
+  {
+    "id": 3,
+    "nombre": "Mouse Gamer G-Force Neon",
+    "precio": 4999,
+    "categoria": "perifericos",
+    "descripcion": "Domina la partida con precisión quirúrgica. Equipado con un sensor óptico de alta precisión de hasta 16,000 DPI ajustables al vuelo, un peso ultra ligero de 69g, cable trenzado ultra flexible y deslizadores de teflón virgen para un deslizamiento sin esfuerzo.",
+    "imagen": "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=600&auto=format&fit=crop&q=80",
+    "stock": 25,
+    "specs": {
+      "Sensor": "Óptico PixArt 3389",
+      "Resolución": "100 - 16,000 DPI",
+      "Botones": "6 programables",
+      "Peso": "69g (sin cable)"
+    }
+  },
+  {
+    "id": 4,
+    "nombre": "Smartwatch Deportivo Chronos Active",
+    "precio": 15999,
+    "categoria": "wearables",
+    "descripcion": "Tu compañero de salud y rendimiento definitivo. Cuenta con pantalla táctil AMOLED de 1.43 pulgadas de alta definición, sensor cardíaco de precisión, oxímetro (SpO2), GPS integrado para trazar tus rutas sin llevar el teléfono y resistencia al agua de 5 ATM.",
+    "imagen": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80",
+    "stock": 10,
+    "specs": {
+      "Pantalla": "1.43\" AMOLED Táctil",
+      "Sensores": "Frecuencia Cardíaca, Oxígeno en Sangre, GPS",
+      "Resistencia al Agua": "5 ATM (Apto para natación)",
+      "Batería": "Hasta 10 días de uso estándar"
+    }
+  }
+]
