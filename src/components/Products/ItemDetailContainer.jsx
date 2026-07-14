@@ -2,40 +2,65 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ItemDetail from './ItemDetail';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { db } from '../../firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
 
 const ItemDetailContainer = () => {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isDemoMode } = useAuth();
 
   useEffect(() => {
-    setLoading(true);
-    fetch('/productos.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Error al cargar la información del producto');
-        }
-        return response.json();
-      })
-      .then((data) => {
-        // Parse id from route params and search product
-        const itemId = parseInt(id, 10);
-        const foundItem = data.find((item) => item.id === itemId);
-        
-        if (foundItem) {
-          setProduct(foundItem);
+    const fetchProduct = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (isDemoMode) {
+          // Read from localStorage (simulate DB)
+          const localData = localStorage.getItem('tecnomundo_db_products');
+          let items = [];
+          if (localData) {
+            items = JSON.parse(localData);
+          } else {
+            const response = await fetch('/productos.json');
+            if (!response.ok) throw new Error('Error al cargar datos locales');
+            items = await response.json();
+            localStorage.setItem('tecnomundo_db_products', JSON.stringify(items));
+          }
+          // The route parameter id is a string, compare correctly (could be numeric in mock mode)
+          const foundItem = items.find(item => String(item.id) === String(id));
+          if (foundItem) {
+            setProduct(foundItem);
+          } else {
+            setError('El producto solicitado no existe.');
+          }
         } else {
-          setError('El producto solicitado no existe.');
+          // Firebase Firestore
+          if (!db) throw new Error('Firestore no está configurado.');
+          const docRef = doc(db, 'productos', id);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            setProduct({ id: docSnap.id, ...docSnap.data() });
+          } else {
+            // Check if ID is numeric, maybe it was looking for a pre-seeded id that hasn't synced
+            setError('El producto solicitado no existe en Firestore.');
+          }
         }
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(err);
-        setError(err.message);
+        setError('Error al obtener el producto: ' + err.message);
+      } finally {
         setLoading(false);
-      });
-  }, [id]);
+      }
+    };
+
+    fetchProduct();
+  }, [id, isDemoMode]);
+
 
   if (loading) {
     return (

@@ -1,10 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Zap, Shield, Cpu, Award } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 
 const Home = () => {
   return (
     <div className="animate-fade-in">
+      <Helmet>
+        <title>Tecno Mundo - Lo Último en Tecnología</title>
+        <meta name="description" content="Bienvenido a Tecno Mundo, tu tienda online premium para periféricos de alta gama, audio inmersivo y wearables deportivos." />
+      </Helmet>
+
       {/* Hero Section */}
       <section className="hero container">
         <div className="hero-grid">

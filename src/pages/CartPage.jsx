@@ -1,54 +1,20 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ShoppingBag, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useCart } from '../context/CartContext';
+import { Helmet } from 'react-helmet-async';
+import { FaTrash, FaShoppingBag, FaArrowLeft, FaArrowRight, FaCheckCircle, FaTrashAlt } from 'react-icons/fa';
 
 const CartPage = () => {
-  // Pre-load two items so the cart has mock content, showing off the styling
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      nombre: "Auriculares Inalámbricos AeroSound X",
-      precio: 12999,
-      categoria: "audio",
-      imagen: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80",
-      cantidad: 1,
-      stock: 15
-    },
-    {
-      id: 3,
-      nombre: "Mouse Gamer G-Force Neon",
-      precio: 4999,
-      categoria: "perifericos",
-      imagen: "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=600&auto=format&fit=crop&q=80",
-      cantidad: 2,
-      stock: 25
-    }
-  ]);
+  const { 
+    cartItems, 
+    updateQuantity, 
+    removeItem, 
+    clearCart, 
+    getCartTotal, 
+    getCartCount 
+  } = useCart();
 
   const [checkoutComplete, setCheckoutComplete] = useState(false);
-
-  const updateQuantity = (id, change) => {
-    setCartItems(prev =>
-      prev.map(item => {
-        if (item.id === id) {
-          const newQty = item.cantidad + change;
-          return {
-            ...item,
-            cantidad: Math.max(1, Math.min(item.stock, newQty))
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const removeItem = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const calculateSubtotal = () => {
-    return cartItems.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-  };
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
@@ -60,18 +26,23 @@ const CartPage = () => {
 
   const handleCheckout = () => {
     setCheckoutComplete(true);
-    setCartItems([]);
+    clearCart();
   };
 
   return (
     <section className="cart-section container animate-fade-in">
+      <Helmet>
+        <title>Mi Carrito - Tecno Mundo</title>
+        <meta name="description" content="Revisa tu carrito de compras de tecnología en Tecno Mundo antes de proceder al pago." />
+      </Helmet>
+
       {checkoutComplete ? (
         <div 
           className="glass-card empty-cart-state" 
           style={{ maxWidth: '600px', margin: '0 auto', border: '1px solid var(--success)' }}
         >
           <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.08)', display: 'flex', alignItems: 'center', justify: 'center', color: 'var(--success)', margin: '0 auto 20px auto', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            <CheckCircle2 size={36} />
+            <FaCheckCircle size={36} />
           </div>
           <h3>¡Pedido Realizado con Éxito!</h3>
           <p>
@@ -83,7 +54,7 @@ const CartPage = () => {
         </div>
       ) : cartItems.length === 0 ? (
         <div className="glass-card empty-cart-state" style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <ShoppingBag size={48} className="empty-cart-icon" />
+          <FaShoppingBag size={48} className="empty-cart-icon" style={{ color: 'var(--text-muted)' }} />
           <h3>Tu carrito está vacío</h3>
           <p>
             Parece que aún no has agregado productos a tu compra. ¡Explora nuestro catálogo y equipa tu setup hoy mismo!
@@ -95,8 +66,16 @@ const CartPage = () => {
       ) : (
         <div className="cart-grid">
           <div className="glass-card cart-items-card">
-            <div className="cart-title-section">
-              <h3 style={{ fontSize: '22px' }}>Mi Carrito ({cartItems.reduce((acc, item) => acc + item.cantidad, 0)} productos)</h3>
+            <div className="cart-title-section d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <h3 style={{ fontSize: '22px', margin: 0 }}>Mi Carrito ({getCartCount()} productos)</h3>
+              <button 
+                onClick={clearCart} 
+                className="btn btn-secondary py-2 px-3 d-flex align-items-center gap-2"
+                style={{ fontSize: '13px', background: 'rgba(239, 68, 68, 0.1)', color: '#ff8a8a', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+              >
+                <FaTrashAlt size={12} />
+                <span>Vaciar Carrito</span>
+              </button>
             </div>
             
             <div className="cart-list">
@@ -142,7 +121,7 @@ const CartPage = () => {
                       className="remove-item-btn"
                       title="Eliminar producto"
                     >
-                      <Trash2 size={16} />
+                      <FaTrash size={14} />
                     </button>
                   </div>
                 </div>
@@ -151,7 +130,7 @@ const CartPage = () => {
 
             <div style={{ marginTop: '24px' }}>
               <Link to="/productos" className="back-link" style={{ marginBottom: 0 }}>
-                <ArrowLeft size={16} />
+                <FaArrowLeft size={13} style={{ marginRight: '6px' }} />
                 Seguir comprando
               </Link>
             </div>
@@ -162,7 +141,7 @@ const CartPage = () => {
             
             <div className="summary-row">
               <span>Subtotal</span>
-              <span>{formatPrice(calculateSubtotal())}</span>
+              <span>{formatPrice(getCartTotal())}</span>
             </div>
             
             <div className="summary-row">
@@ -177,12 +156,12 @@ const CartPage = () => {
             
             <div className="summary-row total">
               <span>Total</span>
-              <span className="summary-total-val">{formatPrice(calculateSubtotal())}</span>
+              <span className="summary-total-val">{formatPrice(getCartTotal())}</span>
             </div>
             
-            <button onClick={handleCheckout} className="btn btn-primary checkout-btn">
-              Iniciar Pago
-              <ArrowRight size={18} />
+            <button onClick={handleCheckout} className="btn btn-primary checkout-btn d-flex align-items-center justify-content-center gap-2">
+              <span>Iniciar Pago</span>
+              <FaArrowRight size={14} />
             </button>
           </div>
         </div>
@@ -192,3 +171,4 @@ const CartPage = () => {
 };
 
 export default CartPage;
+

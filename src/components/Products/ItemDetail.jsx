@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { useCart } from '../../context/CartContext';
+import { Helmet } from 'react-helmet-async';
+import { ArrowLeft, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { FaShoppingCart, FaArrowLeft, FaCheck } from 'react-icons/fa';
 
 const ItemDetail = ({ item }) => {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const { addItem } = useCart();
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
@@ -15,16 +19,22 @@ const ItemDetail = ({ item }) => {
   };
 
   const handleAddToCart = () => {
+    addItem(item, quantity);
     setAdded(true);
-    console.log(`Añadido al carrito: ${item.nombre} x${quantity}`);
   };
 
   return (
     <div className="container detail-section animate-fade-in">
+      <Helmet>
+        <title>{item.nombre} - Tecno Mundo</title>
+        <meta name="description" content={`Compra ${item.nombre} en Tecno Mundo. ${item.descripcion}`} />
+      </Helmet>
+
       <Link to="/productos" className="back-link">
-        <ArrowLeft size={16} />
+        <FaArrowLeft size={14} style={{ marginRight: '6px' }} />
         Volver al catálogo
       </Link>
+
 
       <div className="detail-grid">
         <div className="detail-gallery">
@@ -85,15 +95,17 @@ const ItemDetail = ({ item }) => {
                 </div>
 
                 {added ? (
-                  <Link to="/carrito" className="btn btn-primary animate-fade-in" style={{ flexGrow: 1 }}>
-                    Ver en el Carrito
+                  <Link to="/carrito" className="btn btn-primary animate-fade-in d-flex align-items-center justify-content-center gap-2" style={{ flexGrow: 1, background: 'linear-gradient(135deg, var(--success), #059669)', boxShadow: '0 4px 20px rgba(16, 185, 129, 0.2)' }}>
+                    <FaCheck />
+                    <span>Ver en el Carrito</span>
                   </Link>
                 ) : (
-                  <button onClick={handleAddToCart} className="btn btn-primary" style={{ flexGrow: 1 }}>
-                    <ShoppingBag size={18} />
-                    Agregar al Carrito
+                  <button onClick={handleAddToCart} className="btn btn-primary d-flex align-items-center justify-content-center gap-2" style={{ flexGrow: 1 }}>
+                    <FaShoppingCart />
+                    <span>Agregar al Carrito</span>
                   </button>
                 )}
+
               </>
             )}
           </div>
