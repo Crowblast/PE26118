@@ -36,4 +36,9 @@ Tecno Mundo es una web de comercio electrónico dedicada a la venta de periféri
    - Iconografía interactiva robusta con `react-icons`.
    - SEO Dinámico mediante `react-helmet-async` para inyectar títulos y etiquetas meta en cada página de la tienda.
  
+6. **Sistema de Cupones de Descuento**:
+   - **Panel de Administración**: Nueva sección de gestión para crear, editar, eliminar y activar/desactivar cupones de descuento (de tipo porcentaje o monto fijo con opción de compra mínima requerida).
+   - **Aplicación en Carrito**: Formulario en el carrito para ingresar códigos de cupón y recalcular el total de la compra dinámicamente con alertas de validación.
+   - **Validación Reactiva**: Remoción automática del cupón si el subtotal de la compra desciende por debajo de la compra mínima exigida al reducir cantidades.
+
 ---

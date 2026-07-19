@@ -29,7 +29,11 @@ import {
   FaSignOutAlt, 
   FaTools, 
   FaShoppingBag,
-  FaRedo
+  FaRedo,
+  FaTicketAlt,
+  FaToggleOn,
+  FaToggleOff,
+  FaPercent
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
@@ -173,16 +177,19 @@ const AdminPanel = () => {
   const { logout, isDemoMode, currentUser } = useAuth();
   const navigate = useNavigate();
 
+  const [activeTab, setActiveTab] = useState('productos'); // 'productos' | 'cupones'
   const [products, setProducts] = useState([]);
+  const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [couponsLoading, setCouponsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form Modal state
+  // Form Modal state for Products
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null); // null means adding new product
 
-  // Form Fields
+  // Form Fields for Products
   const [formData, setFormData] = useState({
     nombre: '',
     precio: '',
@@ -193,9 +200,27 @@ const AdminPanel = () => {
   });
   const [formErrors, setFormErrors] = useState({});
 
-  // Delete Confirmation Modal state
+  // Delete Confirmation Modal state for Products
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+
+  // Form Modal state for Coupons
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
+
+  // Form Fields for Coupons
+  const [couponFormData, setCouponFormData] = useState({
+    codigo: '',
+    tipo: 'porcentaje',
+    valor: '',
+    compraMinima: '0',
+    activo: true
+  });
+  const [couponFormErrors, setCouponFormErrors] = useState({});
+
+  // Delete Confirmation Modal state for Coupons
+  const [showConfirmCouponModal, setShowConfirmCouponModal] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState(null);
 
   // Operations loading state (creating, editing, deleting)
   const [actionLoading, setActionLoading] = useState(false);
@@ -206,7 +231,6 @@ const AdminPanel = () => {
     setError('');
     try {
       if (isDemoMode) {
-        // Read from localStorage, fallback to products.json if empty
         const localData = localStorage.getItem('tecnomundo_db_products');
         if (localData) {
           setProducts(JSON.parse(localData));
@@ -214,18 +238,15 @@ const AdminPanel = () => {
           const response = await fetch('/productos.json');
           if (!response.ok) throw new Error('Error al cargar datos demo');
           const data = await response.json();
-          // Store locally
           localStorage.setItem('tecnomundo_db_products', JSON.stringify(data));
           setProducts(data);
         }
       } else {
-        // Firestore real connection
         if (!db) throw new Error('Firestore no está inicializado.');
         const colRef = collection(db, 'productos');
         const snapshot = await getDocs(colRef);
         let list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        // If Firestore is empty, seed it with default products!
         if (list.length === 0) {
           const response = await fetch('/productos.json');
           const defaultProds = await response.json();
@@ -248,8 +269,55 @@ const AdminPanel = () => {
     }
   };
 
+  // Fetch Coupons
+  const fetchCoupons = async () => {
+    setCouponsLoading(true);
+    setError('');
+    try {
+      if (isDemoMode) {
+        const localData = localStorage.getItem('tecnomundo_db_coupons');
+        if (localData) {
+          setCoupons(JSON.parse(localData));
+        } else {
+          const defaultCoupons = [
+            { id: '1', codigo: 'TECNO10', tipo: 'porcentaje', valor: 10, compraMinima: 0, activo: true },
+            { id: '2', codigo: 'REGALO3000', tipo: 'fijo', valor: 3000, compraMinima: 15000, activo: true }
+          ];
+          localStorage.setItem('tecnomundo_db_coupons', JSON.stringify(defaultCoupons));
+          setCoupons(defaultCoupons);
+        }
+      } else {
+        if (!db) throw new Error('Firestore no está inicializado.');
+        const colRef = collection(db, 'cupones');
+        const snapshot = await getDocs(colRef);
+        let list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (list.length === 0) {
+          const defaultCoupons = [
+            { codigo: 'TECNO10', tipo: 'porcentaje', valor: 10, compraMinima: 0, activo: true },
+            { codigo: 'REGALO3000', tipo: 'fijo', valor: 3000, compraMinima: 15000, activo: true }
+          ];
+          const seedPromises = defaultCoupons.map(async (cp) => {
+            const newDoc = await addDoc(colRef, cp);
+            return { id: newDoc.id, ...cp };
+          });
+          list = await Promise.all(seedPromises);
+          console.log("Firestore Coupons seeded successfully!");
+        }
+        
+        setCoupons(list);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error al obtener la lista de cupones: ' + err.message);
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCoupons();
   }, [isDemoMode]);
 
   const handleLogout = async () => {
@@ -261,7 +329,7 @@ const AdminPanel = () => {
     }
   };
 
-  // Open form modal for adding
+  // Open product form modal for adding
   const handleOpenAdd = () => {
     setEditingProduct(null);
     setFormData({
@@ -276,7 +344,7 @@ const AdminPanel = () => {
     setShowFormModal(true);
   };
 
-  // Open form modal for editing
+  // Open product form modal for editing
   const handleOpenEdit = (product) => {
     setEditingProduct(product);
     setFormData({
@@ -291,7 +359,7 @@ const AdminPanel = () => {
     setShowFormModal(true);
   };
 
-  // Validate form
+  // Validate product form
   const validateForm = () => {
     const errors = {};
     if (!formData.nombre.trim()) errors.nombre = 'El nombre es obligatorio.';
@@ -341,18 +409,15 @@ const AdminPanel = () => {
 
     try {
       if (isDemoMode) {
-        // LocalStorage CRUD simulation
         let updatedList = [...products];
         if (editingProduct) {
-          // Edit
           updatedList = updatedList.map(p => 
             p.id === editingProduct.id ? { ...p, ...formattedProduct } : p
           );
           setSuccess('Producto actualizado con éxito (Local)');
         } else {
-          // Create
           const newProd = {
-            id: Date.now(), // Numeric ID for local simulation
+            id: Date.now(),
             ...formattedProduct
           };
           updatedList.push(newProd);
@@ -362,7 +427,6 @@ const AdminPanel = () => {
         setProducts(updatedList);
         setShowFormModal(false);
       } else {
-        // Firestore CRUD
         const colRef = collection(db, 'productos');
         if (editingProduct) {
           const docRef = doc(db, 'productos', editingProduct.id);
@@ -372,7 +436,7 @@ const AdminPanel = () => {
           await addDoc(colRef, formattedProduct);
           setSuccess('Producto agregado correctamente a la nube.');
         }
-        await fetchProducts(); // Reload from db
+        await fetchProducts();
         setShowFormModal(false);
       }
     } catch (err) {
@@ -383,7 +447,7 @@ const AdminPanel = () => {
     }
   };
 
-  // Open delete confirmation modal
+  // Open delete product confirmation modal
   const handleOpenDelete = (product) => {
     setProductToDelete(product);
     setShowConfirmModal(true);
@@ -418,6 +482,202 @@ const AdminPanel = () => {
     }
   };
 
+  // Open coupon modal for adding
+  const handleOpenAddCoupon = () => {
+    setEditingCoupon(null);
+    setCouponFormData({
+      codigo: '',
+      tipo: 'porcentaje',
+      valor: '',
+      compraMinima: '0',
+      activo: true
+    });
+    setCouponFormErrors({});
+    setShowCouponModal(true);
+  };
+
+  // Open coupon modal for editing
+  const handleOpenEditCoupon = (coupon) => {
+    setEditingCoupon(coupon);
+    setCouponFormData({
+      codigo: coupon.codigo,
+      tipo: coupon.tipo,
+      valor: coupon.valor.toString(),
+      compraMinima: coupon.compraMinima.toString(),
+      activo: coupon.activo
+    });
+    setCouponFormErrors({});
+    setShowCouponModal(true);
+  };
+
+  // Validate Coupon Form
+  const validateCouponForm = () => {
+    const errors = {};
+    if (!couponFormData.codigo.trim()) {
+      errors.codigo = 'El código de cupón es obligatorio.';
+    } else if (!/^[A-Z0-9_-]+$/i.test(couponFormData.codigo.trim())) {
+      errors.codigo = 'El código debe contener solo letras, números y guiones, sin espacios.';
+    }
+
+    if (!couponFormData.valor) {
+      errors.valor = 'El valor es obligatorio.';
+    } else {
+      const val = parseFloat(couponFormData.valor);
+      if (isNaN(val) || val <= 0) {
+        errors.valor = 'Debe ser un número mayor a 0.';
+      } else if (couponFormData.tipo === 'porcentaje' && val > 100) {
+        errors.valor = 'El porcentaje no puede ser mayor al 100%.';
+      }
+    }
+
+    if (couponFormData.compraMinima !== '') {
+      const min = parseFloat(couponFormData.compraMinima);
+      if (isNaN(min) || min < 0) {
+        errors.compraMinima = 'No puede ser negativo.';
+      }
+    }
+
+    setCouponFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Save Coupon (Create or Edit)
+  const handleSaveCoupon = async (e) => {
+    e.preventDefault();
+    if (!validateCouponForm()) return;
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    const formattedCoupon = {
+      codigo: couponFormData.codigo.trim().toUpperCase(),
+      tipo: couponFormData.tipo,
+      valor: parseFloat(couponFormData.valor),
+      compraMinima: couponFormData.compraMinima ? parseFloat(couponFormData.compraMinima) : 0,
+      activo: couponFormData.activo
+    };
+
+    try {
+      if (isDemoMode) {
+        let updatedList = [...coupons];
+        const isDuplicate = updatedList.some(c => 
+          c.codigo === formattedCoupon.codigo && (!editingCoupon || c.id !== editingCoupon.id)
+        );
+        if (isDuplicate) {
+          setCouponFormErrors({ codigo: 'Ya existe un cupón con este código.' });
+          setActionLoading(false);
+          return;
+        }
+
+        if (editingCoupon) {
+          updatedList = updatedList.map(c => 
+            c.id === editingCoupon.id ? { ...c, ...formattedCoupon } : c
+          );
+          setSuccess('Cupón actualizado con éxito (Local)');
+        } else {
+          const newCp = {
+            id: Date.now().toString(),
+            ...formattedCoupon
+          };
+          updatedList.push(newCp);
+          setSuccess('Cupón agregado con éxito (Local)');
+        }
+        localStorage.setItem('tecnomundo_db_coupons', JSON.stringify(updatedList));
+        setCoupons(updatedList);
+        setShowCouponModal(false);
+      } else {
+        const colRef = collection(db, 'cupones');
+        
+        if (editingCoupon) {
+          const docRef = doc(db, 'cupones', editingCoupon.id);
+          await updateDoc(docRef, formattedCoupon);
+          setSuccess('Cupón actualizado correctamente en la nube.');
+        } else {
+          const isDuplicate = coupons.some(c => c.codigo === formattedCoupon.codigo);
+          if (isDuplicate) {
+            setCouponFormErrors({ codigo: 'Ya existe un cupón con este código.' });
+            setActionLoading(false);
+            return;
+          }
+          await addDoc(colRef, formattedCoupon);
+          setSuccess('Cupón creado correctamente en la nube.');
+        }
+        await fetchCoupons();
+        setShowCouponModal(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error al guardar cupón: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Toggle Coupon Active Status
+  const handleToggleCouponActive = async (coupon) => {
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+    const newStatus = !coupon.activo;
+
+    try {
+      if (isDemoMode) {
+        const updatedList = coupons.map(c => 
+          c.id === coupon.id ? { ...c, activo: newStatus } : c
+        );
+        localStorage.setItem('tecnomundo_db_coupons', JSON.stringify(updatedList));
+        setCoupons(updatedList);
+        setSuccess(`Cupón ${coupon.codigo} ${newStatus ? 'activado' : 'desactivado'} con éxito (Local).`);
+      } else {
+        const docRef = doc(db, 'cupones', coupon.id);
+        await updateDoc(docRef, { activo: newStatus });
+        setSuccess(`Cupón ${coupon.codigo} ${newStatus ? 'activado' : 'desactivado'} correctamente.`);
+        await fetchCoupons();
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error al cambiar estado del cupón: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open delete coupon confirmation
+  const handleOpenDeleteCoupon = (coupon) => {
+    setCouponToDelete(coupon);
+    setShowConfirmCouponModal(true);
+  };
+
+  // Confirm Delete Coupon
+  const handleConfirmDeleteCoupon = async () => {
+    if (!couponToDelete) return;
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      if (isDemoMode) {
+        const updatedList = coupons.filter(c => c.id !== couponToDelete.id);
+        localStorage.setItem('tecnomundo_db_coupons', JSON.stringify(updatedList));
+        setCoupons(updatedList);
+        setSuccess('Cupón eliminado con éxito (Local).');
+      } else {
+        const docRef = doc(db, 'cupones', couponToDelete.id);
+        await deleteDoc(docRef);
+        setSuccess('Cupón eliminado correctamente de la nube.');
+        await fetchCoupons();
+      }
+      setShowConfirmCouponModal(false);
+    } catch (err) {
+      console.error(err);
+      setError('Error al eliminar cupón: ' + err.message);
+    } finally {
+      setActionLoading(false);
+      setCouponToDelete(null);
+    }
+  };
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -430,7 +690,7 @@ const AdminPanel = () => {
     <StyledContainer className="animate-fade-in">
       <Helmet>
         <title>Panel de Administración - Tecno Mundo</title>
-        <meta name="description" content="Gestiona el catálogo de productos de Tecno Mundo. Agrega, edita y elimina artículos de la base de datos." />
+        <meta name="description" content="Gestiona el catálogo de productos y cupones de Tecno Mundo." />
       </Helmet>
 
       <AdminHeader>
@@ -438,21 +698,50 @@ const AdminPanel = () => {
           <span className="hero-subtitle d-flex align-items-center gap-2">
             <FaTools size={14} /> Panel Administrativo
           </span>
-          <h2 className="m-0 font-display">Gestión de Inventario</h2>
+          <h2 className="m-0 font-display">
+            {activeTab === 'productos' ? 'Gestión de Inventario' : 'Gestión de Cupones'}
+          </h2>
           <small className="text-secondary">
             Conectado como: <strong>{currentUser?.email}</strong> {isDemoMode && <span className="badge bg-warning text-dark ms-2">Modo Demo</span>}
           </small>
         </div>
 
-        <div className="d-flex gap-2">
-          <ControlButton variant="secondary" onClick={fetchProducts} disabled={loading} title="Sincronizar base de datos">
-            <FaRedo className={loading ? 'spin-anim' : ''} />
+        <div className="d-flex gap-2 align-items-center flex-wrap">
+          <div className="btn-group me-2" role="group" style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--border-radius-sm)', padding: '3px' }}>
+            <button 
+              type="button" 
+              className={`btn btn-sm ${activeTab === 'productos' ? 'btn-primary' : 'btn-link text-white text-decoration-none'}`}
+              onClick={() => setActiveTab('productos')}
+              style={{ borderRadius: 'var(--border-radius-sm)', border: 'none' }}
+            >
+              <FaShoppingBag className="me-1" size={13} /> Productos
+            </button>
+            <button 
+              type="button" 
+              className={`btn btn-sm ${activeTab === 'cupones' ? 'btn-primary' : 'btn-link text-white text-decoration-none'}`}
+              onClick={() => setActiveTab('cupones')}
+              style={{ borderRadius: 'var(--border-radius-sm)', border: 'none' }}
+            >
+              <FaTicketAlt className="me-1" size={13} /> Cupones
+            </button>
+          </div>
+
+          <ControlButton 
+            variant="secondary" 
+            onClick={activeTab === 'productos' ? fetchProducts : fetchCoupons} 
+            disabled={loading || couponsLoading} 
+            title="Sincronizar base de datos"
+          >
+            <FaRedo className={(activeTab === 'productos' ? loading : couponsLoading) ? 'spin-anim' : ''} />
             <span>Actualizar</span>
           </ControlButton>
 
-          <ControlButton variant="primary" onClick={handleOpenAdd}>
+          <ControlButton 
+            variant="primary" 
+            onClick={activeTab === 'productos' ? handleOpenAdd : handleOpenAddCoupon}
+          >
             <FaPlus />
-            <span>Nuevo Producto</span>
+            <span>{activeTab === 'productos' ? 'Nuevo Producto' : 'Nuevo Cupón'}</span>
           </ControlButton>
 
           <ControlButton variant="danger" onClick={handleLogout} className="btn-secondary" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ff8a8a' }}>
@@ -465,78 +754,172 @@ const AdminPanel = () => {
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
       {success && <Alert variant="success" className="mb-4">{success}</Alert>}
 
-      {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="info" className="mb-3" />
-          <p className="text-secondary font-display">Cargando inventario de productos...</p>
-        </div>
-      ) : (
-        <GlassTableCard>
-          {products.length === 0 ? (
-            <div className="text-center py-5 text-secondary">
-              <FaShoppingBag size={48} className="mb-3" style={{ opacity: 0.5 }} />
-              <h4>No hay productos registrados</h4>
-              <p>Haz clic en "Nuevo Producto" para comenzar a armar el catálogo.</p>
+      {/* PRODUCTS TAB CONTENT */}
+      {activeTab === 'productos' && (
+        <>
+          {loading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="info" className="mb-3" />
+              <p className="text-secondary font-display">Cargando inventario de productos...</p>
             </div>
           ) : (
-            <DarkTable responsive hover>
-              <thead>
-                <tr>
-                  <th>Imagen</th>
-                  <th>Nombre</th>
-                  <th>Categoría</th>
-                  <th>Precio</th>
-                  <th>Stock</th>
-                  <th className="text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((prod) => (
-                  <tr key={prod.id}>
-                    <td>
-                      <Thumbnail src={prod.imagen} alt={prod.nombre} onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=100'; }} />
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{prod.nombre}</td>
-                    <td style={{ textTransform: 'capitalize' }}>
-                      <span className="badge bg-dark border border-secondary text-light px-2 py-1">{prod.categoria}</span>
-                    </td>
-                    <td>{formatPrice(prod.precio)}</td>
-                    <td>
-                      <span style={{ color: prod.stock <= 3 ? 'var(--error)' : 'inherit', fontWeight: prod.stock <= 3 ? 600 : 400 }}>
-                        {prod.stock} uds.
-                      </span>
-                    </td>
-                    <td>
-                      <div className="d-flex justify-content-center gap-2">
-                        <Button 
-                          variant="outline-info" 
-                          size="sm" 
-                          className="d-inline-flex align-items-center gap-1"
-                          onClick={() => handleOpenEdit(prod)}
-                        >
-                          <FaEdit size={13} />
-                          <span>Editar</span>
-                        </Button>
-                        <Button 
-                          variant="outline-danger" 
-                          size="sm"
-                          className="d-inline-flex align-items-center gap-1"
-                          onClick={() => handleOpenDelete(prod)}
-                        >
-                          <FaTrashAlt size={13} />
-                          <span>Borrar</span>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DarkTable>
+            <GlassTableCard>
+              {products.length === 0 ? (
+                <div className="text-center py-5 text-secondary">
+                  <FaShoppingBag size={48} className="mb-3" style={{ opacity: 0.5 }} />
+                  <h4>No hay productos registrados</h4>
+                  <p>Haz clic en "Nuevo Producto" para comenzar a armar el catálogo.</p>
+                </div>
+              ) : (
+                <DarkTable responsive hover>
+                  <thead>
+                    <tr>
+                      <th>Imagen</th>
+                      <th>Nombre</th>
+                      <th>Categoría</th>
+                      <th>Precio</th>
+                      <th>Stock</th>
+                      <th className="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((prod) => (
+                      <tr key={prod.id}>
+                        <td>
+                          <Thumbnail src={prod.imagen} alt={prod.nombre} onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=100'; }} />
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{prod.nombre}</td>
+                        <td style={{ textTransform: 'capitalize' }}>
+                          <span className="badge bg-dark border border-secondary text-light px-2 py-1">{prod.categoria}</span>
+                        </td>
+                        <td>{formatPrice(prod.precio)}</td>
+                        <td>
+                          <span style={{ color: prod.stock <= 3 ? 'var(--error)' : 'inherit', fontWeight: prod.stock <= 3 ? 600 : 400 }}>
+                            {prod.stock} uds.
+                          </span>
+                        </td>
+                        <td>
+                          <div className="d-flex justify-content-center gap-2">
+                            <Button 
+                              variant="outline-info" 
+                              size="sm" 
+                              className="d-inline-flex align-items-center gap-1"
+                              onClick={() => handleOpenEdit(prod)}
+                            >
+                              <FaEdit size={13} />
+                              <span>Editar</span>
+                            </Button>
+                            <Button 
+                              variant="outline-danger" 
+                              size="sm"
+                              className="d-inline-flex align-items-center gap-1"
+                              onClick={() => handleOpenDelete(prod)}
+                            >
+                              <FaTrashAlt size={13} />
+                              <span>Borrar</span>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DarkTable>
+              )}
+            </GlassTableCard>
           )}
-        </GlassTableCard>
+        </>
       )}
 
-      {/* CREATE & EDIT FORM MODAL */}
+      {/* COUPONS TAB CONTENT */}
+      {activeTab === 'cupones' && (
+        <>
+          {couponsLoading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="info" className="mb-3" />
+              <p className="text-secondary font-display">Cargando cupones de descuento...</p>
+            </div>
+          ) : (
+            <GlassTableCard>
+              {coupons.length === 0 ? (
+                <div className="text-center py-5 text-secondary">
+                  <FaTicketAlt size={48} className="mb-3" style={{ opacity: 0.5 }} />
+                  <h4>No hay cupones registrados</h4>
+                  <p>Haz clic en "Nuevo Cupón" para crear uno.</p>
+                </div>
+              ) : (
+                <DarkTable responsive hover>
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Tipo</th>
+                      <th>Valor</th>
+                      <th>Compra Mínima</th>
+                      <th>Estado</th>
+                      <th className="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coupons.map((cp) => (
+                      <tr key={cp.id}>
+                        <td style={{ fontWeight: 700, color: 'var(--accent-primary)', letterSpacing: '0.05em' }}>
+                          {cp.codigo}
+                        </td>
+                        <td style={{ textTransform: 'capitalize' }}>
+                          <span className="badge bg-dark border border-secondary text-light px-2 py-1">
+                            {cp.tipo === 'porcentaje' ? 'Porcentaje (%)' : 'Monto Fijo ($)'}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          {cp.tipo === 'porcentaje' ? `${cp.valor}%` : formatPrice(cp.valor)}
+                        </td>
+                        <td>
+                          {cp.compraMinima > 0 ? formatPrice(cp.compraMinima) : 'Sin mínimo'}
+                        </td>
+                        <td>
+                          <Button 
+                            variant="link" 
+                            className="p-0 border-0 text-decoration-none d-flex align-items-center gap-1"
+                            onClick={() => handleToggleCouponActive(cp)}
+                            style={{ color: cp.activo ? 'var(--success)' : 'var(--text-muted)' }}
+                            title={cp.activo ? 'Desactivar cupón' : 'Activar cupón'}
+                          >
+                            {cp.activo ? <FaToggleOn size={22} /> : <FaToggleOff size={22} />}
+                            <span style={{ fontSize: '13px' }}>{cp.activo ? 'Activo' : 'Inactivo'}</span>
+                          </Button>
+                        </td>
+                        <td>
+                          <div className="d-flex justify-content-center gap-2">
+                            <Button 
+                              variant="outline-info" 
+                              size="sm" 
+                              className="d-inline-flex align-items-center gap-1"
+                              onClick={() => handleOpenEditCoupon(cp)}
+                            >
+                              <FaEdit size={13} />
+                              <span>Editar</span>
+                            </Button>
+                            <Button 
+                              variant="outline-danger" 
+                              size="sm"
+                              className="d-inline-flex align-items-center gap-1"
+                              onClick={() => handleOpenDeleteCoupon(cp)}
+                            >
+                              <FaTrashAlt size={13} />
+                              <span>Borrar</span>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DarkTable>
+              )}
+            </GlassTableCard>
+          )}
+        </>
+      )}
+
+      {/* CREATE & EDIT PRODUCT MODAL */}
       <Modal 
         show={showFormModal} 
         onHide={() => !actionLoading && setShowFormModal(false)}
@@ -653,7 +1036,111 @@ const AdminPanel = () => {
         </Form>
       </Modal>
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* CREATE & EDIT COUPON MODAL */}
+      <Modal 
+        show={showCouponModal} 
+        onHide={() => !actionLoading && setShowCouponModal(false)}
+        backdrop="static" 
+        centered
+        contentClassName="bg-dark text-light border border-secondary"
+      >
+        <Modal.Header closeButton closeVariant="white" className="border-secondary">
+          <Modal.Title className="gradient-text font-display">
+            {editingCoupon ? 'Editar Cupón' : 'Crear Nuevo Cupón'}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleSaveCoupon}>
+          <Modal.Body className="p-4">
+            <Form.Group className="mb-3">
+              <FormLabel>Código del Cupón *</FormLabel>
+              <FormInput 
+                type="text" 
+                placeholder="Ej. TECNO2026"
+                value={couponFormData.codigo}
+                onChange={(e) => setCouponFormData({ ...couponFormData, codigo: e.target.value })}
+                isInvalid={!!couponFormErrors.codigo}
+                disabled={actionLoading}
+                style={{ textTransform: 'uppercase' }}
+              />
+              <Form.Control.Feedback type="invalid">{couponFormErrors.codigo}</Form.Control.Feedback>
+              <Form.Text className="text-muted">
+                Solo letras, números y guiones. Se convertirá automáticamente a mayúsculas.
+              </Form.Text>
+            </Form.Group>
+
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <FormLabel>Tipo de Descuento *</FormLabel>
+                  <FormSelect
+                    value={couponFormData.tipo}
+                    onChange={(e) => setCouponFormData({ ...couponFormData, tipo: e.target.value })}
+                    disabled={actionLoading}
+                  >
+                    <option value="porcentaje">Porcentaje (%)</option>
+                    <option value="fijo">Monto Fijo ($)</option>
+                  </FormSelect>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <FormLabel>
+                    {couponFormData.tipo === 'porcentaje' ? 'Porcentaje (%) *' : 'Monto Fijo (ARS) *'}
+                  </FormLabel>
+                  <FormInput 
+                    type="number" 
+                    placeholder={couponFormData.tipo === 'porcentaje' ? '15' : '2000'}
+                    min="0.01"
+                    step="any"
+                    value={couponFormData.valor}
+                    onChange={(e) => setCouponFormData({ ...couponFormData, valor: e.target.value })}
+                    isInvalid={!!couponFormErrors.valor}
+                    disabled={actionLoading}
+                  />
+                  <Form.Control.Feedback type="invalid">{couponFormErrors.valor}</Form.Control.Feedback>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-3">
+              <FormLabel>Compra Mínima Requerida (ARS)</FormLabel>
+              <FormInput 
+                type="number" 
+                placeholder="0 (Sin compra mínima)"
+                min="0"
+                step="any"
+                value={couponFormData.compraMinima}
+                onChange={(e) => setCouponFormData({ ...couponFormData, compraMinima: e.target.value })}
+                isInvalid={!!couponFormErrors.compraMinima}
+                disabled={actionLoading}
+              />
+              <Form.Control.Feedback type="invalid">{couponFormErrors.compraMinima}</Form.Control.Feedback>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Check 
+                type="switch"
+                id="coupon-active-switch"
+                label="Cupón Activo"
+                checked={couponFormData.activo}
+                onChange={(e) => setCouponFormData({ ...couponFormData, activo: e.target.checked })}
+                disabled={actionLoading}
+                className="text-white font-weight-bold"
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer className="border-secondary">
+            <Button variant="secondary" onClick={() => setShowCouponModal(false)} disabled={actionLoading}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" disabled={actionLoading}>
+              {actionLoading ? <Spinner size="sm" animation="border" /> : 'Guardar Cupón'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+
+      {/* CONFIRM DELETE PRODUCT MODAL */}
       <Modal 
         show={showConfirmModal} 
         onHide={() => !actionLoading && setShowConfirmModal(false)}
@@ -682,6 +1169,38 @@ const AdminPanel = () => {
           </Button>
           <Button variant="danger" onClick={handleConfirmDelete} disabled={actionLoading}>
             {actionLoading ? <Spinner size="sm" animation="border" /> : 'Eliminar Permanentemente'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* CONFIRM DELETE COUPON MODAL */}
+      <Modal 
+        show={showConfirmCouponModal} 
+        onHide={() => !actionLoading && setShowConfirmCouponModal(false)}
+        centered
+        contentClassName="bg-dark text-light border border-danger"
+      >
+        <Modal.Header closeButton closeVariant="white" className="border-danger">
+          <Modal.Title className="text-danger font-display">Confirmar Eliminación de Cupón</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <p>¿Estás seguro de que deseas eliminar este cupón de descuento?</p>
+          <div className="p-3 bg-dark-raw border border-secondary rounded mt-3">
+            <h6 className="m-0 text-white">Código: {couponToDelete?.codigo}</h6>
+            <span className="text-secondary">
+              Descuento: {couponToDelete?.tipo === 'porcentaje' ? `${couponToDelete?.valor}%` : formatPrice(couponToDelete?.valor || 0)}
+            </span>
+          </div>
+          <p className="text-danger mt-3" style={{ fontSize: '13px' }}>
+            * Esta acción no se puede deshacer.
+          </p>
+        </Modal.Body>
+        <Modal.Footer className="border-danger">
+          <Button variant="secondary" onClick={() => setShowConfirmCouponModal(false)} disabled={actionLoading}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDeleteCoupon} disabled={actionLoading}>
+            {actionLoading ? <Spinner size="sm" animation="border" /> : 'Eliminar Cupón'}
           </Button>
         </Modal.Footer>
       </Modal>
